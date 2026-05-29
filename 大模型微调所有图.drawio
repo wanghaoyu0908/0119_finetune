@@ -1,6 +1,6 @@
 <mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.6.6 Chrome/144.0.7559.236 Electron/40.8.4 Safari/537.36" version="29.6.6" pages="4">
   <diagram name="04-LLM微调" id="OrEi-5PVO_2H19bgJWWD">
-    <mxGraphModel dx="4542" dy="1768" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="4217" dy="1610" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -902,15 +902,6 @@
         </mxCell>
         <mxCell id="fWfy_zopAMzZ9MZUP1sN-43" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontSize=20;fontFamily=Architects Daughter;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DArchitects%2BDaughter;" value="labels:" vertex="1">
           <mxGeometry height="30" width="60" x="-668" y="1771" as="geometry" />
-        </mxCell>
-        <mxCell id="fWfy_zopAMzZ9MZUP1sN-44" parent="1" style="whiteSpace=wrap;html=1;sketch=1;hachureGap=4;jiggle=2;curveFitting=1;fontFamily=Architects Daughter;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DArchitects%2BDaughter;" value="2" vertex="1">
-          <mxGeometry height="49" width="52" x="-547" y="1690" as="geometry" />
-        </mxCell>
-        <mxCell id="fWfy_zopAMzZ9MZUP1sN-45" parent="1" style="whiteSpace=wrap;html=1;sketch=1;hachureGap=4;jiggle=2;curveFitting=1;fontFamily=Architects Daughter;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DArchitects%2BDaughter;" value="3" vertex="1">
-          <mxGeometry height="49" width="52" x="-495" y="1690" as="geometry" />
-        </mxCell>
-        <mxCell id="fWfy_zopAMzZ9MZUP1sN-46" parent="1" style="whiteSpace=wrap;html=1;sketch=1;hachureGap=4;jiggle=2;curveFitting=1;fontFamily=Architects Daughter;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DArchitects%2BDaughter;" value="4" vertex="1">
-          <mxGeometry height="49" width="53" x="-444" y="1690" as="geometry" />
         </mxCell>
         <mxCell id="fWfy_zopAMzZ9MZUP1sN-47" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontSize=20;fontFamily=Architects Daughter;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DArchitects%2BDaughter;" value="第一条样本：&lt;div&gt;target_labels :[12,23,34,101,222]&lt;/div&gt;&lt;div&gt;token_probs: [&lt;/div&gt;&lt;div&gt;[],&lt;/div&gt;&lt;div&gt;[],&lt;/div&gt;&lt;div&gt;[],&lt;/div&gt;&lt;div&gt;[],&lt;/div&gt;&lt;div&gt;[]&lt;/div&gt;&lt;div&gt;]&lt;/div&gt;" vertex="1">
           <mxGeometry height="30" width="310" x="-599" y="2022" as="geometry" />

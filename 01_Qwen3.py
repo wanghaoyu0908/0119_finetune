@@ -241,7 +241,7 @@ def compute_rope_params(head_dim, theta_base=10_000, context_length=4096, dtype=
     freq_indices = torch.arange(0, head_dim, 2, dtype=dtype)
 
     # 2. 只保留前 head_dim//2 个
-    freq_indices = freq_indices[: head_dim // 2]
+    # freq_indices = freq_indices[: head_dim // 2]
 
     # 3. 转成浮点，并除以 head_dim，得到指数
     exponents = freq_indices.float() / head_dim
