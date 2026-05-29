@@ -75,11 +75,14 @@ class Qwen3Model(nn.Module):
         mask = mask.unsqueeze(0).unsqueeze(0)
 
         for i, block in enumerate(self.trf_blocks):
+            # prefill，cache传进去的，是一个空字典：{}
             blk_cache = cache.get(i) if cache is not None else None
             x, new_blk_cache = block(x, mask, self.cos, self.sin,
                                      start_pos=pos_start,
                                      cache=blk_cache)
             if cache is not None:
+                # 会对我们传入的{}，做一个具体的赋值
+                # 对字典中每一层,赋值K和V的Cache
                 cache[i] = new_blk_cache
 
         # 输出前先进行层归一化
@@ -257,7 +260,7 @@ def compute_rope_params(head_dim, theta_base=10_000, context_length=4096, dtype=
     # positions.unsqueeze(1): (context_length,1)
     # inv_freq.unsqueeze(0): (1,head_dim // 2)
     # angles: (context_length, head_dim // 2)
-    # angles[0,0]=序列中第0个位置处，第0组分量的旋转角度
+    # angles[0,0]=序列中第0个位置处，第0组分量的旋转角度，对应的就是m * theta_i
     # angles:[[ange_0],[angle_1],[angle_2],[angle_3]]
     angles = positions.unsqueeze(1) * inv_freq.unsqueeze(0)  # Shape: (context_length, head_dim // 2)
 
@@ -305,6 +308,7 @@ def apply_rope(x, cos, sin, offset=0):
     # 调整sin和cos的形状：当前这段 token 取出对应位置的 cos 和 sin，并调整 shape 以便广播
     # offset: 10 seq_len: 2: [10,11]
     # offset: 12 seq_len:3 [12,13,14]
+    # offset=0,
     cos = cos[offset:offset + seq_len, :].unsqueeze(0).unsqueeze(0)  # Shape: (1, 1, seq_len, head_dim)
     sin = sin[offset:offset + seq_len, :].unsqueeze(0).unsqueeze(0)  # Shape: (1, 1, seq_len, head_dim)
 
@@ -424,6 +428,7 @@ def generate_text(input_ids,model:Qwen3Model,tokenizer:Qwen3Tokenizer,max_len:in
     
     with torch.no_grad():
         # 1、prefill阶段
+        # output_logits: shape:[batch_size,seq_len,vocab_size]
         output_logits = model(input_ids,cache=kv_cache)
         
         logits = output_logits[:,-1,:]
@@ -438,7 +443,7 @@ def generate_text(input_ids,model:Qwen3Model,tokenizer:Qwen3Tokenizer,max_len:in
 
         final_output = torch.cat([final_output,next_input],dim=-1)
         while generated_token<max_len:
-
+            # 当前KV_Cache就不是空字典了，当前这个dict中的键，就是不同的TransformerBlock的层，值就是这一层所对应的KV Cache
             output_logits =  model(next_input,kv_cache)
             
             logits = output_logits[:,-1,:]
