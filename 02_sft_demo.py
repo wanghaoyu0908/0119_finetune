@@ -194,6 +194,7 @@ def train(config:SFTConfig):
     writer = SummaryWriter(log_dir = config.log_dir)
     loss_list= []
     progress_bar = tqdm.tqdm(total=total_steps,desc="step")
+    print("开始训练")
     for step in range(total_steps):
         
         # 1、构造一个batch的数据
@@ -209,7 +210,7 @@ def train(config:SFTConfig):
             padding_length = batch_max_len - current_seq_len
 
             seq["input_ids"].extend([tokenizer.pad_token_id] * padding_length)
-            padded_seq.append(seq)
+            padded_seq.append(seq["input_ids"])
         
         # 1.3 从padded_seq中构造模型前向传播输入的input_ids和labels
         padded_seq_tensors = torch.tensor(padded_seq,dtype=torch.long).to("cuda")
@@ -236,6 +237,7 @@ def train(config:SFTConfig):
         # 4、更新模型参数
         # 4.1 通过学习率调度器，获取到当前step的学习率
         current_step_learning_rate = cosine_decay(step,total_steps,min_lr=config.min_learning_rate,max_lr=config.max_learning_rate,warmup_step=config.warmup_step)
+        writer.add_scalar("learning_rate",current_step_learning_rate,step)
         # 4.2 更新优化器的学习率
         optimizer.param_groups[0]["lr"] = current_step_learning_rate
         # 4.3 更新模型参数
