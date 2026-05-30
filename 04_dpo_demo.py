@@ -169,10 +169,8 @@ def compute_log_probs(output_logits,labels,assistant_answer_mask):
     answer_log_probs = torch.gather(log_probs,dim=-1,index=labels.unsqueeze(-1))
     # answer_log_probs: shape为:(batch_size, seq_len, 1)
     answer_log_probs = answer_log_probs.squeeze(-1)
-    # 3、得到负对数概率
-    answer_log_probs = answer_log_probs * (-1)
 
-    # 4、使用assistant_answer_mask对answer_log_probs进行mask操作
+    # 3、使用assistant_answer_mask对answer_log_probs进行mask操作
     # masked_answer_log_probs: shape为：batch_size, seq_len，masked_answer_log_probs[0][0]，
     masked_answer_log_probs = answer_log_probs * assistant_answer_mask
 
