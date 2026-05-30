@@ -5,33 +5,42 @@ model_path = "model/Qwen3-0.6B-Base"
 tokenizer = AutoTokenizer.from_pretrained(model_path)
 
 @dataclass
-class SFTConfig:
+class DPOConfig:
     batch_size:int=3
     min_learning_rate:float=5e-6
     max_learning_rate:float = 5e-5
     warmup_step:int = 500
+    beta:float = 0.5 
 
-    log_dir:str = "logs/Qwen3-0.6B-SFT"
+    log_dir:str = "logs/Qwen3-0.6B-DPO"
     log_iter:int = 100
 
-    save_dir:str = "finetuned/Qwen3-0.6B-SFT"
+    save_dir:str = "finetuned/Qwen3-0.6B-DPO"
     train_data_size:int = 20000
 
 # 使用chat template，对数据集当中的数据进行处理
-def get_train_data(config:SFTConfig):
+def get_train_data(config:DPOConfig):
 
     from datasets import load_dataset
-    dataset = load_dataset("data/ultrachat_200k")
+    dataset = load_dataset("data/ultrafeedback_binarized")
     train_sft_data:list = dataset["train_sft"]
-    train_data = []
+    chose_train_data= []
+    rejected_train_data = []
     for i in range(config.train_data_size):
-        message_list = train_sft_data[i]["messages"]
-        message_list.insert(0,{"role": "system", "content": "你是一个智能助手"})
+        # 对于chosen数据的处理
+        chose_message_list = train_sft_data[i]["chosen"]
+        chose_message_list.insert(0,{"role": "system", "content": "你是一个智能助手"})
         # tokenized_data: dict，包含了input_ids和attention_mask
-        tokenized_data = tokenizer.apply_chat_template(message_list,tokenize=True,truncation=True,max_length = 2500)
-        train_data.append(tokenized_data)
+        chosen_tokenized_data = tokenizer.apply_chat_template(chose_message_list,tokenize=True,truncation=True,max_length = 2500)
+        chose_train_data.append(chosen_tokenized_data)
+        # 对于rejected数据的处理
+        rejected_message_list = train_sft_data[i]["rejected"]
+        rejected_message_list.insert(0,{"role": "system", "content": "你是一个智能助手"})
+        # tokenized_data: dict，包含了input_ids和attention_mask
+        rejected_tokenized_data = tokenizer.apply_chat_template(rejected_message_list,tokenize=True,truncation=True,max_length = 2500)
+        rejected_train_data.append(rejected_tokenized_data)
     
-    return train_data
+    return chose_train_data,rejected_train_data
 
 from transformers import PreTrainedTokenizerFast
 import torch
@@ -128,13 +137,29 @@ def _set_answer_masks(mask,user_ends,assistant_ends):
         answer_end = assistant_end - 1
         mask[answer_start:answer_end] = 1
 
-# 根据SFT损失计算公式来写具体损失计算的方法/函数
-def compute_loss(output_logits,labels,assistant_answer_mask):
+# 根据DPO损失计算公式来写具体损失计算的方法/函数
+def compute_loss(chosen_log_probs,rejected_log_probs,reference_chosen_log_probs,reference_rejected_log_probs,config:DPOConfig):
     """
-    计算当前批次的平均损失
-    output_logits: 模型前向传播输出的logits, shape为：(batch_size, seq_len, vocab_size)
-    labels: 真实标签，shape为：(batch_size, seq_len)
-    assistant_answer_mask: 助手回答的mask码，shape为：(batch_size, seq_len)
+    chosen_log_probs: shape为：(batch_size,) chosen_log_probs[0]，第0个样本，输出偏好回答的平均对数概率
+    rejected_log_probs: shape为：(batch_size,)
+    reference_chosen_log_probs: shape为：(batch_size, )
+    reference_rejected_log_probs: shape为：(batch_size,)
+    config: DPOConfig，包含了Beta超参数
+    """
+
+    log_prob_diff = config.beta * ((chosen_log_probs - rejected_log_probs)- (reference_chosen_log_probs - reference_rejected_log_probs))
+    # torch有一个算子：log_sigmoid
+    negative_log_likelihood = -torch.nn.functional.logsigmoid(log_prob_diff)
+
+    # 对整个批次的所有样本，求一个均值，对当前批次当中的所有样本，求一个均值
+    loss = negative_log_likelihood.mean()
+
+    return loss
+
+def compute_log_probs(output_logits,labels,assistant_answer_mask):
+    """
+    计算对数概率
+    Returns:
     """
     # 1、计算logits的softmax，得到对数概率分布
     # log_probs: shape为:(batch_size, seq_len, vocab_size)
@@ -148,12 +173,17 @@ def compute_loss(output_logits,labels,assistant_answer_mask):
     answer_log_probs = answer_log_probs * (-1)
 
     # 4、使用assistant_answer_mask对answer_log_probs进行mask操作
+    # masked_answer_log_probs: shape为：batch_size, seq_len，masked_answer_log_probs[0][0]，
     masked_answer_log_probs = answer_log_probs * assistant_answer_mask
 
-    # 5、计算平均损失
-    average_loss = masked_answer_log_probs.sum()  / assistant_answer_mask.sum()
 
-    return average_loss
+    # 假设，当前batch中有两个样本，此处计算的是每个样本的平均对数概率
+    # masked_answer_log_probs.sum(dim=-1)：让masked_answer_log_probs，沿着最后一个维度（seq_len），对负对数概率，进行求和
+    # 除以 assistant_answer_mask.sum(dim=-1)的含义：对每个样本，做样本长度的归一化，因为每个样本的长度是不同的，所以需要对每个样本的负对数概率，进行归一化，才能得到平均对数概率
+    average_log_probs = masked_answer_log_probs.sum(dim =-1) / assistant_answer_mask.sum(dim=-1)
+
+    return average_log_probs
+
 
 import numpy as np
 def cosine_decay(current_step,total_step, min_lr, max_lr,warmup_step):
@@ -170,22 +200,24 @@ from transformers import AutoModelForCausalLM
 from dataclasses import dataclass
 from torch.utils.tensorboard import SummaryWriter
 import tqdm
-model = AutoModelForCausalLM.from_pretrained("model/Qwen3-0.6B-Base/")
+model = AutoModelForCausalLM.from_pretrained("finetuned/Qwen3-0.6B-SFT/")
+ref_model = AutoModelForCausalLM.from_pretrained("finetuned/Qwen3-0.6B-SFT/")
 
 
-
-def train(config:SFTConfig):
+def train(config:DPOConfig):
     """
     手写主训练循环代码
     """
-    # 1、获取模型，将模型置为训练模式，将模型放到cuda上
+    # 1、获取模型: 需要获取两个模型，一个是训练模型，一个是参考模型，将模型置为训练模式，将模型放到cuda上
     model.train()
     model.to("cuda")
+    ref_model.eval()
+    ref_model.to("cuda")
     # 2、获取到训练数据
-    train_data = get_train_data(config)
+    chosen_train_data, rejected_train_data = get_train_data(config)
     # 假设train_data最后剩余的数据不足batch_size，剩余范围是1到batch_size-1 ，再加上batch_size-1，batch_size 到 2batch_size-2
     # 假设，train_data是 10条数据，batch_size是4，10+3=13 13//4 = 3
-    total_steps = (len(train_data)+ config.batch_size -1) // config.batch_size
+    total_steps = (len(chosen_train_data)+ config.batch_size -1) // config.batch_size
 
     # 3、构造优化器
     optimizer = torch.optim.AdamW(model.parameters(),lr=config.min_learning_rate)
@@ -197,40 +229,80 @@ def train(config:SFTConfig):
     print("开始训练")
     for step in range(total_steps):
         
-        # 1、构造一个batch的数据
+        # 1、构造一个batch的数据:分别构造chosen_train_data和rejected_train_data
         # 1.1 获取一个batch的数据
-        batch_data = train_data[step* config.batch_size:(step+1) * config.batch_size]
+        batch_chosen_train_data = chosen_train_data[step* config.batch_size:(step+1) * config.batch_size]
+        batch_rejected_train_data = rejected_train_data[step* config.batch_size:(step+1) * config.batch_size]
+        # 1.2 分别对chosen和rejected的数据进行padding
 
-        # 1.2 对数据进行padding
-
-        batch_max_len = max([len(seq["input_ids"]) for seq in batch_data])
-        padded_seq= []
-        for seq in batch_data:
+        # chosen
+        batch_chosen_max_len = max([len(seq["input_ids"]) for seq in batch_chosen_train_data])
+        padded_chosen_seq= []
+        for seq in batch_chosen_train_data:
             current_seq_len = len(seq["input_ids"])
-            padding_length = batch_max_len - current_seq_len
+            padding_length = batch_chosen_max_len - current_seq_len
 
             seq["input_ids"].extend([tokenizer.pad_token_id] * padding_length)
-            padded_seq.append(seq["input_ids"])
+            padded_chosen_seq.append(seq["input_ids"])
         
-        # 1.3 从padded_seq中构造模型前向传播输入的input_ids和labels
-        padded_seq_tensors = torch.tensor(padded_seq,dtype=torch.long).to("cuda")
+        # 1.3 从padded_chosen_seq中构造模型前向传播输入的input_ids和labels
+        padded_chosen_seq_tensors = torch.tensor(padded_chosen_seq,dtype=torch.long).to("cuda")
 
-        input_ids = padded_seq_tensors[:,:-1]
-        labels = padded_seq_tensors[:,1:]
+        chosen_input_ids = padded_chosen_seq_tensors[:,:-1]
+        chosen_labels = padded_chosen_seq_tensors[:,1:]
 
         # 1.4 基于input_ids构建一个assistant_answer_mask
-        assistant_answer_mask = create_answer_mask(input_ids,tokenizer)
+        chosen_assistant_answer_mask = create_answer_mask(chosen_input_ids,tokenizer)
 
-        if assistant_answer_mask.sum().item() == 0:
-            print("当前batch中，没有assistant回答的部分")
-            progress_bar.update(1)
-            continue
+
+        # rejected
+        batch_rejected_max_len = max([len(seq["input_ids"]) for seq in batch_rejected_train_data])
+        padded_rejected_seq= []
+        for seq in batch_rejected_train_data:
+            current_seq_len = len(seq["input_ids"])
+            padding_length = batch_rejected_max_len - current_seq_len
+
+            seq["input_ids"].extend([tokenizer.pad_token_id] * padding_length)
+            padded_rejected_seq.append(seq["input_ids"])
+        
+        # 1.3 从padded_rejected_seq中构造模型前向传播输入的input_ids和labels
+        padded_rejected_seq_tensors = torch.tensor(padded_rejected_seq,dtype=torch.long).to("cuda")
+
+        rejected_input_ids = padded_rejected_seq_tensors[:,:-1]
+        rejected_labels = padded_rejected_seq_tensors[:,1:]
+
+        # 1.4 基于input_ids构建一个assistant_answer_mask
+        rejected_assistant_answer_mask = create_answer_mask(rejected_input_ids,tokenizer)
+
+        
 
         # 2、模型前向传播
-        output_logits = model(input_ids).logits
+        # 训练模型，两次前向传播
+        # batch_size, seq_len, vocab_size
+        chosen_output_logits = model(chosen_input_ids).logits
+        rejected_output_logits = model(rejected_input_ids).logits
 
-        # 3、计算损失，反向传播，计算梯度
-        loss = compute_loss(output_logits, labels, assistant_answer_mask)
+        # 参考模型，两次前向传播,
+        with torch.no_grad():
+            # 在torch.no_grad()中去执行参考模型的前向传播，使得参考模型不会记录梯度
+            chosen_reference_output_logits = ref_model(chosen_input_ids).logits
+            rejected_reference_output_logits = ref_model(rejected_input_ids).logits
+
+        # 3、计算损失
+        chosen_average_log_probs = compute_log_probs(chosen_output_logits,chosen_labels,chosen_assistant_answer_mask)
+        rejected_average_log_probs = compute_log_probs(rejected_output_logits,rejected_labels,rejected_assistant_answer_mask)
+
+        chosen_reference_average_log_probs = compute_log_probs(chosen_reference_output_logits,chosen_labels,chosen_assistant_answer_mask)
+        reejected_reference_average_log_probs = compute_log_probs(rejected_reference_output_logits,rejected_labels,rejected_assistant_answer_mask)
+
+        loss = compute_loss(
+            chosen_log_probs = chosen_average_log_probs,
+            rejected_log_probs = rejected_average_log_probs,
+            reference_chosen_log_probs = chosen_reference_average_log_probs,
+            reference_rejected_log_probs = reejected_reference_average_log_probs,
+            config = config
+            )
+
 
         loss.backward()
         loss_list.append(loss.item())
@@ -259,5 +331,5 @@ def train(config:SFTConfig):
 
 
 if __name__ == "__main__":
-    config = SFTConfig()
+    config = DPOConfig()
     train(config)
