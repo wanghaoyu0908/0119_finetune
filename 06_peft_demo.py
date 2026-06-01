@@ -76,7 +76,7 @@ config = SFTConfig(
 
     # 评估和保存相关参数：
     eval_strategy="steps",
-    eval_steps=200,
+    eval_steps=100,
     metric_for_best_model="eval_loss",
     greater_is_better=False,
     save_strategy="steps",
