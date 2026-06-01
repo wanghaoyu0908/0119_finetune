@@ -62,8 +62,8 @@ mapped_datasets_dict = datasets_dict.map(function=map,batched=True,remove_column
 
 # 5、构造SFTConfig实例
 config = SFTConfig(
-    per_device_train_batch_size=1,
-    gradient_accumulation_steps=4,
+    per_device_train_batch_size=2,
+    gradient_accumulation_steps=12,
     num_train_epochs=1,
     #
     # max_steps=10
@@ -86,8 +86,8 @@ config = SFTConfig(
 
     # 优化相关
     bf16=True,
-    gradient_checkpointing=True,
-    activation_offloading=True,
+    gradient_checkpointing=False,
+    activation_offloading=False,
     max_length=500,
     
     # use_liger_kernel=True,
