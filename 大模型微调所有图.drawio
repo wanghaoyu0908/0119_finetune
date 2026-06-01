@@ -1,6 +1,6 @@
 <mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.6.6 Chrome/144.0.7559.236 Electron/40.8.4 Safari/537.36" version="29.6.6" pages="4">
   <diagram name="04-LLM微调" id="OrEi-5PVO_2H19bgJWWD">
-    <mxGraphModel dx="4217" dy="1610" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+    <mxGraphModel dx="4324" dy="1662" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -1042,8 +1042,17 @@
         <mxCell id="bEK8MBqZG5GTdF1q4je4-24" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontSize=20;fontFamily=Architects Daughter;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DArchitects%2BDaughter;" value="3、&lt;div&gt;4bit当中的0，表示-1&lt;/div&gt;&lt;div&gt;4bit当中的1，表示-1+2/15&lt;/div&gt;" vertex="1">
           <mxGeometry height="30" width="381" x="60" y="3037" as="geometry" />
         </mxCell>
-        <mxCell id="bEK8MBqZG5GTdF1q4je4-25" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontSize=20;fontFamily=Architects Daughter;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DArchitects%2BDaughter;" value="Text" vertex="1">
-          <mxGeometry height="30" width="60" x="66.5" y="3147" as="geometry" />
+        <mxCell id="srg14eSOUbd3VjNd7dpP-1" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontSize=20;fontFamily=Architects Daughter;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DArchitects%2BDaughter;" value="3、假设我们有一组数据[-1.2312,3.444,5, 7]" vertex="1">
+          <mxGeometry height="30" width="279" x="99" y="3200" as="geometry" />
+        </mxCell>
+        <mxCell id="srg14eSOUbd3VjNd7dpP-2" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontSize=20;fontFamily=Architects Daughter;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DArchitects%2BDaughter;" value="4、找到上面这组数值的绝对值最大值，每个数字除以绝对值最大值，得到了一组-1到1的数据。[-1.2312/7, 3.444/7, 5/7, 7/7]" vertex="1">
+          <mxGeometry height="30" width="279" x="99" y="3311" as="geometry" />
+        </mxCell>
+        <mxCell id="srg14eSOUbd3VjNd7dpP-3" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontSize=20;fontFamily=Architects Daughter;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DArchitects%2BDaughter;" value="5、对于这组新的数据，找到每个数据，和前面得到的-1到1范围内的16个数字，哪个最相近" vertex="1">
+          <mxGeometry height="30" width="279" x="104" y="3434" as="geometry" />
+        </mxCell>
+        <mxCell id="srg14eSOUbd3VjNd7dpP-4" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontSize=20;fontFamily=Architects Daughter;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DArchitects%2BDaughter;" value="5、对于这组新的数据，找到每个数据，和前面得到的-1到1范围内的16个数字，哪个最相近" vertex="1">
+          <mxGeometry height="30" width="279" x="116.5" y="3577" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
