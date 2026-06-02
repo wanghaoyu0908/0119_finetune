@@ -1,38 +1,45 @@
-# 1、导入相关的包
-from peft import LoraConfig,get_peft_model
+# 1、导包
+from peft import prepare_model_for_kbit_training,LoraConfig,get_peft_model
+import torch
+from transformers import AutoModelForCausalLM,AutoTokenizer,BitsAndBytesConfig
 import os
-os.environ["TENSORBOARD_LOGGING_DIR"]="logs/Qwen3-0.6B-LoRA"
-# 2、构造一个LoraConfig对象
+os.environ["TENSORBOARD_LOGGING_DIR"]="logs/Qwen3-8B-QLoRA"
+
+# 2、构建一个BitsAndBytesConfig对象
+bitsandbytes_config = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_use_double_quant=False,
+    bnb_4bit_compute_dtype=torch.bfloat16,
+    bnb_4bit_quant_type="nf4"
+)
+
+# 3、加载模型时，传入config
+model = AutoModelForCausalLM.from_pretrained("model/Qwen3-8B",quantization_config=bitsandbytes_config)
+# model = AutoModelForCausalLM.from_pretrained("model/Qwen3-8B")
+
+model.to("cuda")
+
+# 4、调用prepare_model_for_kbit_training对模型进行预处理
+model = prepare_model_for_kbit_training(model)
+
+# 5、接下来的操作，就和LoRA是一致的
 lora_config = LoraConfig(
-    r=32, # 基于硬件资源和任务复杂度决定传递多少，这个值大，就会对资源要求更高，这个值小，对于复杂任务而言，可能会存在欠拟合的风险
-    # 1、只对q_proj和v_proj两个参数矩阵调整
-    # target_modules=["q_proj","v_proj"],
-    # 2、扩展到其他的线性层
-    # target_modules=["q_proj","v_proj","k_proj","o_proj","gate_proj","up_proj","down_proj"],
-    # 3、更加简洁的写法：作用到所有的线性层上面
-    target_modules="all-linear",
-    lora_alpha=32, # 设置成2r,64
+    r=32,
+    lora_alpha=32,
     lora_dropout=0.05,
+    target_modules="all-linear",
     task_type="CAUSAL_LM"
 )
 
-from transformers import AutoModelForCausalLM,AutoTokenizer
-# 3、获取peft_model
-model = AutoModelForCausalLM.from_pretrained("model/Qwen3-0.6B")
 peft_model = get_peft_model(model,lora_config)
 
 
+from datasets import load_dataset
 from trl.trainer.sft_trainer import SFTTrainer
 from trl.trainer.sft_config import SFTConfig
-from transformers import AutoModelForCausalLM
-from transformers import AutoTokenizer
-from datasets import load_dataset
-
-# 4、准备数据：把原始数据，转换成SFTTrainer所需要的数据类型，
-# 4.1 加载数据
+# 6、加载数据
 datasets_dict = load_dataset("json",data_files={"train":"data/keywords_data_train.jsonl","test":"data/keywords_data_test.jsonl"})
-
-# 4.2 使用map方法，对数据进行处理，处理成conversation格式
+tokenizer = AutoTokenizer.from_pretrained("model/Qwen3-8B")
 from typing import Dict, List
 def map(examples:Dict[str,List]):
     """
@@ -60,17 +67,17 @@ def map(examples:Dict[str,List]):
 
 mapped_datasets_dict = datasets_dict.map(function=map,batched=True,remove_columns=['conversation_id', 'category', 'conversation', 'dataset'])
 
-# 5、构造SFTConfig实例
+# 7、构造SFTConfig实例
 config = SFTConfig(
     per_device_train_batch_size=2,
     gradient_accumulation_steps=12,
     num_train_epochs=1,
     #
-    # max_steps=10
+    max_steps=1000,
     logging_strategy="steps",
     logging_steps=100,
     report_to="tensorboard",
-    learning_rate=5e-4,
+    learning_rate=2e-4,
     lr_scheduler_type="cosine",
     warmup_ratio=0.1,
 
@@ -82,7 +89,7 @@ config = SFTConfig(
     save_strategy="steps",
     save_steps=200,
     save_total_limit=3,
-    output_dir="finetuned/Qwen3-0.6B-LoRA",
+    output_dir="finetuned/Qwen3-8B-QLoRA",
 
     # 优化相关
     bf16=True,
@@ -108,4 +115,4 @@ trainer = SFTTrainer(
 
 
 trainer.train()
-trainer.save_model("finetuned/Qwen3-0.6B-LoRA")
+trainer.save_model("finetuned/Qwen3-8B-QLoRA")
